@@ -1,13 +1,24 @@
+// Define o pino do sensor LDR
 const int ldr = A0;
+
+// Taxa de transmissão (em milissegundos)
 int taxa = 1000;
+
+// Variável para armazenar o valor lido do sensor
 int valorSensor = 0;
+
+// Flag para indicar se a configuração inicial foi feita
 boolean configurado = true;
 
-// Definindo o valor de 1 e 0 para condições ideais
-int valorZero = 100; // Menor que 100
-int valorUm = 350; // Maior que 350
+// Definindo os valores para 0 e 1 nas condições ideais
+int valorZero = 100; // Menor que 100 é considerado 0
+int valorUm = 350; // Maior que 350 é considerado 1
+
 void setup() {
+  // Configura o pino do LDR como entrada
   pinMode(ldr, INPUT);
+
+  // Inicializa a comunicação Serial a 9600 bits por segundo
   Serial.begin(9600);
   while (!Serial) {
     ; // Aguarda a conexão
@@ -15,10 +26,11 @@ void setup() {
 }
 
 void loop() {
+  // Verifica se há um sinal de início de transmissão
   if (lerValor() == 1){
     if (configurado){
       Serial.println("Iniciando codificação");
-      delay(1900);
+      delay(1900); // Delay para sincronização
       taxa = configurarTaxa();
       Serial.println("Valor da taxa: " + String(taxa));
     } else {
@@ -26,6 +38,7 @@ void loop() {
       Serial.print("Tamanho Recebido: ");
       Serial.println(tamanho);
       
+      // Verifica se o próximo bit é 1 para escolher NRZ-L ou NRZ-I
       if (lerValor() == 1){
         delay(taxa);
         String mensagem = nrzL(tamanho);
@@ -41,6 +54,7 @@ void loop() {
   }  
 }
 
+// Função para ler o valor do sensor LDR
 int lerValor(){
   if (analogRead(ldr) > valorUm) {
     return 1;
@@ -49,13 +63,16 @@ int lerValor(){
   }
 }
 
+// Função para configurar a taxa de transmissão
 int configurarTaxa(){
   int numeroDeBits = 0;
   String dado = "";
+  
+  // Lê 10 bits de configuração
   while (numeroDeBits <= 10){
     Serial.println("Valor LDR lido: " + String(analogRead(ldr)));
     dado += String(lerValor());
-    delay(500);
+    delay(500); // Delay para leitura dos bits
     numeroDeBits++;
   }
   Serial.println("Acabou a codificação.");
@@ -63,6 +80,7 @@ int configurarTaxa(){
   return binaryStringToInt(dado);
 }
 
+// Função para converter uma string binária para inteiro
 int binaryStringToInt(String binaryString) {
   int result = 0;
   int length = binaryString.length();
@@ -75,13 +93,15 @@ int binaryStringToInt(String binaryString) {
   return result;
 }
 
+// Função para obter o tamanho da palavra
 int getTamanhoPalavra(){
-  delay(taxa*1.5);
+  delay(taxa * 1.5); // Delay para sincronização
   String tamanho = "";
   int numeroDeBits = 0;
   Serial.println("Recebendo tamanho da palavra...");
   
-  while(numeroDeBits < 9){
+  // Lê 9 bits que representam o tamanho da palavra
+  while (numeroDeBits < 9){
     Serial.println("Valor LDR lido: " + String(analogRead(ldr)));
     tamanho += String(lerValor());
     numeroDeBits++;
@@ -91,8 +111,9 @@ int getTamanhoPalavra(){
   return binaryStringToInt(tamanho);
 }
 
+// Função para receber mensagem usando NRZ-L
 String nrzL(int tamanho){
-  delay(taxa);
+  delay(taxa); // Delay para sincronização
   String mensagem = "";
   int numeroDeBits = 0;
   Serial.println("Recebendo mensagem...");
@@ -100,8 +121,8 @@ String nrzL(int tamanho){
   Serial.print("Tamanho mensagem: ");
   Serial.println(tamanho);
 
-  
-  while(numeroDeBits < tamanho){
+  // Lê os bits da mensagem
+  while (numeroDeBits < tamanho){
     Serial.println("Valor LDR lido: " + String(analogRead(ldr)));
     mensagem += String(lerValor());
     numeroDeBits++;
@@ -120,8 +141,9 @@ String nrzL(int tamanho){
   return mensagem;
 }
 
+// Função para receber mensagem usando NRZ-I
 String nrzI(int tamanho) {
-  delay(taxa);
+  delay(taxa); // Delay para sincronização
   String mensagem = "";
   int numeroDeBits = 0;
   bool ultimoBit = LOW; // Estado inicial
@@ -133,6 +155,7 @@ String nrzI(int tamanho) {
   // Leitura do bit inicial
   ultimoBit = lerValor();
 
+  // Lê os bits da mensagem
   while (numeroDeBits < tamanho) {
     int valorAtual = lerValor();
     if (valorAtual != ultimoBit) {
@@ -157,9 +180,10 @@ String nrzI(int tamanho) {
   return mensagem;
 }
 
+// Função para converter uma string binária para string ASCII
 String binaryToString(String bin) {
   String str = "";
-  for (int i = 0; i < bin.length(); i += 8) { // Incrementa de 9 em 9 para pular o espaÃ§o
+  for (int i = 0; i < bin.length(); i += 8) {
     String binChar = bin.substring(i, i + 8);
     Serial.print("Palavra binario: ");
     Serial.println(binChar);
@@ -172,8 +196,9 @@ String binaryToString(String bin) {
   return str;
 }
 
+// Função para verificar o CRC da mensagem recebida
 bool verificaCRC(String mensagem) {
-  const String polinomio = "1101"; // PolinÃ´mio gerador
+  const String polinomio = "1101"; // Polinômio gerador
 
   for (int i = 0; i <= mensagem.length() - polinomio.length(); ) {
     for (int j = 0; j < polinomio.length(); j++) {
